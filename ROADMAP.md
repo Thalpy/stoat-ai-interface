@@ -5,14 +5,14 @@ Goal: get `stoat-ai-interface` reliably working in an OpenClaw environment with 
 ## Phase 1 — Baseline Verification
 
 - [ ] Install dependencies and confirm clean install
-- [ ] Run typecheck and resolve any compile/type issues
-- [ ] Add and run baseline unit tests (`npm test`)
+- [x] Run typecheck and resolve any compile/type issues
+- [x] Add and run baseline unit tests (`npm test`)
 - [ ] Document local run/verification workflow in README
 
 ## Phase 2 — Runtime Compatibility (OpenClaw)
 
 - [ ] Verify plugin manifest and entrypoints are compatible with current OpenClaw loading expectations
-- [ ] Validate channel config shape and required env/config fields
+- [x] Validate channel config shape and required env/config fields
 - [ ] Add a minimal dry-run/smoke path for plugin init (without external network dependency)
 - [ ] Document known compatibility assumptions and version constraints
 

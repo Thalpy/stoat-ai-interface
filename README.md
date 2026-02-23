@@ -112,6 +112,10 @@ npm test
 npm run typecheck
 ```
 
+Notes:
+- `npm test` runs smoke tests plus config-resolution tests using Node's `--experimental-strip-types` loader.
+- Account resolution/merge behavior is covered in `test/config.test.mjs` to keep multi-account config compatibility stable.
+
 See `ROADMAP.md` for the bring-up plan and quality gates.
 
 ## Credits
