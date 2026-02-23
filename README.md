@@ -74,6 +74,7 @@ A channel plugin for [Stoat](https://stoat.chat) (open-source Discord alternativ
 |--------|-------------|
 | `token` | Bot token from Stoat |
 | `apiUrl` | API URL for your Stoat instance (e.g., `https://bamalam.xyz/api`) |
+| `wsUrl` | Optional explicit WebSocket URL (e.g., `wss://bamalam.xyz/ws`) |
 | `enabled` | Enable/disable the account |
 
 ## How It Works
@@ -110,6 +111,7 @@ This plugin is currently validated with the following assumptions:
 - **Config contract:** Stoat config is read from `channels.stoat`, with support for top-level default account plus named accounts under `channels.stoat.accounts`.
 - **Startup requirement:** Each enabled account must resolve to a non-empty bot token before connection start.
 - **Network endpoints:** API and WS endpoints should be consistent for the same Stoat instance (e.g., `https://<host>/api` + `wss://<host>/ws`).
+- **WS override support:** `channels.stoat.wsUrl` (or account-level `wsUrl`) can be passed through to the Stoat client when instances require explicit WS endpoint configuration.
 
 If runtime/plugin-loader expectations change in a future OpenClaw release, re-run `npm test` and `npm run typecheck` first, then update manifest/entry compatibility tests.
 
@@ -137,7 +139,7 @@ Use this quick loop when validating local changes:
 
 Notes:
 - `npm test` runs smoke tests, config-resolution tests, startup-plan dry-run tests, and manifest/entrypoint compatibility checks using Node's `--experimental-strip-types` loader.
-- Account resolution/merge behavior is covered in `test/config.test.mjs` to keep multi-account config compatibility stable.
+- Account resolution/merge behavior is covered in `test/config.test.mjs` to keep multi-account config compatibility stable (including top-level `apiUrl`/`wsUrl` fallback into named accounts).
 - Plugin startup planning is covered in `test/start-plan.test.mjs` via `buildStoatStartPlan`, which validates required startup inputs without making external network connections.
 - Plugin loader compatibility is covered in `test/manifest-compat.test.mjs`, validating `clawdbot.plugin.json`, `package.json` entry metadata, and `index.ts` exports expected by OpenClaw/Clawdbot.
 

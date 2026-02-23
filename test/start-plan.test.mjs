@@ -15,6 +15,7 @@ test('buildStoatStartPlan returns dry-run startup plan without network calls', (
       token: '  token-123  ',
       config: {
         apiUrl: 'https://stoat.example/api',
+        wsUrl: 'wss://stoat.example/ws',
         mediaMaxMb: 12,
         historyLimit: 42,
       },
@@ -26,6 +27,7 @@ test('buildStoatStartPlan returns dry-run startup plan without network calls', (
   assert.equal(plan.token, 'token-123');
   assert.equal(plan.accountId, 'default');
   assert.equal(plan.apiUrl, 'https://stoat.example/api');
+  assert.equal(plan.wsUrl, 'wss://stoat.example/ws');
   assert.equal(plan.mediaMaxMb, 12);
   assert.equal(plan.historyLimit, 42);
   assert.equal(plan.runtime, runtime);

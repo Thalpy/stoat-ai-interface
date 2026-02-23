@@ -21,6 +21,7 @@ Goal: get `stoat-ai-interface` reliably working in an OpenClaw environment with 
 - [x] Validate channel config shape and required env/config fields
 - [x] Add a minimal dry-run/smoke path for plugin init (without external network dependency)
 - [x] Document known compatibility assumptions and version constraints
+- [x] Wire explicit WS endpoint config passthrough (`wsUrl`) into startup plan/client options with test coverage
 
 ## Phase 3 — End-to-End Validation
 
@@ -35,6 +36,8 @@ Goal: get `stoat-ai-interface` reliably working in an OpenClaw environment with 
 - Real-instance live check script: `scripts/e2e-live-check.mjs`
 - Inbound routing guard tests (mention-gating + DM): `test/monitor-routing.test.mjs`
 - Manifest/entry compatibility tests: `test/manifest-compat.test.mjs`
+- Startup-plan endpoint passthrough checks (`apiUrl` + `wsUrl`): `test/start-plan.test.mjs`
+- Config merge fallback checks for endpoint settings: `test/config.test.mjs`
 
 ## Quality Gates (Every Iteration)
 

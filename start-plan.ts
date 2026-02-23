@@ -5,6 +5,7 @@ export interface StoatStartPlan {
   accountId: string;
   config: any;
   apiUrl?: string;
+  wsUrl?: string;
   runtime: any;
   abortSignal?: AbortSignal;
   mediaMaxMb?: number;
@@ -24,6 +25,7 @@ export function buildStoatStartPlan(ctx: any): StoatStartPlan {
     accountId: account.accountId,
     config: ctx.cfg,
     apiUrl: account.config.apiUrl,
+    wsUrl: account.config.wsUrl,
     runtime: ctx.runtime,
     abortSignal: ctx.abortSignal,
     mediaMaxMb: account.config.mediaMaxMb,

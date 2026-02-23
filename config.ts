@@ -5,6 +5,7 @@ export interface StoatAccountConfig {
   enabled?: boolean;
   name?: string;
   apiUrl?: string;
+  wsUrl?: string;
   dm?: {
     enabled?: boolean;
     policy?: "open" | "pairing" | "allowlist";
@@ -23,6 +24,8 @@ export interface StoatConfig {
   enabled?: boolean;
   token?: string;
   name?: string;
+  apiUrl?: string;
+  wsUrl?: string;
   accounts?: Record<string, StoatAccountConfig>;
   dm?: StoatAccountConfig["dm"];
   servers?: StoatAccountConfig["servers"];
@@ -83,6 +86,8 @@ export function resolveAccount(cfg: any, accountId?: string): ResolvedAccount {
       enabled: namedAccount.enabled ?? true,
       config: {
         ...namedAccount,
+        apiUrl: namedAccount.apiUrl ?? stoatCfg.apiUrl,
+        wsUrl: namedAccount.wsUrl ?? stoatCfg.wsUrl,
         dm: namedAccount.dm ?? stoatCfg.dm,
         servers: namedAccount.servers ?? stoatCfg.servers,
         groupPolicy: namedAccount.groupPolicy ?? stoatCfg.groupPolicy,
@@ -100,6 +105,8 @@ export function resolveAccount(cfg: any, accountId?: string): ResolvedAccount {
       enabled: stoatCfg.enabled ?? true,
       config: {
         token: stoatCfg.token,
+        apiUrl: stoatCfg.apiUrl,
+        wsUrl: stoatCfg.wsUrl,
         dm: stoatCfg.dm,
         servers: stoatCfg.servers,
         groupPolicy: stoatCfg.groupPolicy,

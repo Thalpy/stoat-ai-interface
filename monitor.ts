@@ -119,6 +119,7 @@ interface MonitorOptions {
   accountId: string;
   config: any;
   apiUrl?: string;
+  wsUrl?: string;
   runtime: {
     log?: (...args: any[]) => void;
     error?: (...args: any[]) => void;
@@ -145,7 +146,7 @@ export function getStoatClientEntry(accountId: string = "default"): ClientEntry 
 }
 
 export async function monitorStoatProvider(opts: MonitorOptions): Promise<() => void> {
-  const { token, accountId, config, apiUrl, runtime, abortSignal } = opts;
+  const { token, accountId, config, apiUrl, wsUrl, runtime, abortSignal } = opts;
   
   const log = (msg: string) => runtime.log?.(`[stoat] [${accountId}] ${msg}`);
   const error = (msg: string) => runtime.error?.(`[stoat] [${accountId}] ${msg}`);
@@ -154,7 +155,11 @@ export async function monitorStoatProvider(opts: MonitorOptions): Promise<() => 
   const clientOpts: any = {};
   if (apiUrl) {
     clientOpts.baseURL = apiUrl;
-    log(`Connecting to ${apiUrl}`);
+    log(`Connecting to API ${apiUrl}`);
+  }
+  if (wsUrl) {
+    clientOpts.wsURL = wsUrl;
+    log(`Connecting to WS ${wsUrl}`);
   }
   
   const client = new Client(clientOpts);

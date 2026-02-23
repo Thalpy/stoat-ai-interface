@@ -27,6 +27,8 @@ test('resolveAccount merges named account with top-level defaults', () => {
   const cfg = {
     channels: {
       stoat: {
+        apiUrl: 'https://stoat.example/api',
+        wsUrl: 'wss://stoat.example/ws',
         dm: { policy: 'allowlist', allowFrom: ['Alice'] },
         mediaMaxMb: 8,
         accounts: {
@@ -43,6 +45,8 @@ test('resolveAccount merges named account with top-level defaults', () => {
   const account = resolveAccount(cfg, 'team');
   assert.equal(account.accountId, 'team');
   assert.equal(account.token, 'team-token');
+  assert.equal(account.config.apiUrl, 'https://stoat.example/api');
+  assert.equal(account.config.wsUrl, 'wss://stoat.example/ws');
   assert.equal(account.config.mediaMaxMb, 8);
   assert.equal(account.config.historyLimit, 50);
   assert.deepEqual(account.config.dm, { policy: 'allowlist', allowFrom: ['Alice'] });
