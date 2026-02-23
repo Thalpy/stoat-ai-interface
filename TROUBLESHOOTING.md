@@ -121,3 +121,15 @@
 1. Add/invite bot `pepper` (`01KJ4MGXP1PXVT5SR3FZDB9H9S`) to the server/channel containing `01KJ6BZHYC2BBHMR8QQS278KR2` (or use the correct token/account for that channel).
 2. Re-run `node scripts/e2e-live-check.mjs` (now pinned by `.env` to outage channel).
 3. Once access succeeds, validate an in-channel mention-triggered reply (`@pepper ...`) end-to-end.
+
+## 2026-02-23 15:17 PST — Manual fix: restore Pepperlabs General runtime channel
+
+- Request: "figure out the pepperlabs server general channel and use that" / "see if you can get things working".
+- Found `.env` had drifted to inaccessible channel:
+  - `STOAT_CHANNEL_ID=01KJ6BZHYC2BBHMR8QQS278KR2` (NotFound for current bot token)
+- Applied runtime config fix:
+  - `STOAT_CHANNEL_ID=01KJ4MG98H44YMMSJ0BSSJZG1X` (Pepperlabs `General`)
+- Validation:
+  - `node scripts/e2e-live-check.mjs` ✅ connect/typing/send/reply/react
+
+Conclusion: channel/account alignment restored for current bot token; live e2e now passes on Pepperlabs General.
