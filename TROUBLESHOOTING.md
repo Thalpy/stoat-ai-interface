@@ -88,3 +88,36 @@
    - `STOAT_CHANNEL_ID=01KJ6BZHYC2BBHMR8QQS278KR2 node scripts/e2e-live-check.mjs`
 3. Once channel access passes, validate mention-triggered reply path in-channel (`@pepper ...`).
 
+## 2026-02-23 15:16:29 PST — Cron outage triage refresh (channel `01KJ6BZHYC2BBHMR8QQS278KR2`)
+
+### Scope
+- Re-checked liveness/diagnostics against local `.env`.
+- Re-reviewed mention gating + account/channel routing assumptions in `monitor.ts`, `routing.ts`, and plugin config path.
+
+### Findings
+1. **Code health remains good**
+   - `npm test` ✅
+   - `npm run typecheck` ✅
+
+2. **Concrete blocker persists: bot/account cannot resolve target channel**
+   - After setting `.env` `STOAT_CHANNEL_ID=01KJ6BZHYC2BBHMR8QQS278KR2`,
+   - `node scripts/e2e-live-check.mjs` still fails:
+     - `Channel 01KJ6BZHYC2BBHMR8QQS278KR2 not found for bot pepper (01KJ4MGXP1PXVT5SR3FZDB9H9S)`
+
+3. **Routing assumption check**
+   - Channel replies require mention (`@pepper`), DMs do not.
+   - No plugin-side hardcoded channel-id gate found; this is not a local mention-gating or channel-filter bug.
+   - Most likely root cause remains channel membership/scope mismatch for the active token.
+
+### Fix Applied (smallest safe)
+- Updated local `.env` `STOAT_CHANNEL_ID` to the outage channel so ongoing live checks target the affected channel directly.
+
+### Validation
+- `npm test` ✅
+- `npm run typecheck` ✅
+- `node scripts/e2e-live-check.mjs` ❌ (expected until bot has access to target channel)
+
+### Next Actions
+1. Add/invite bot `pepper` (`01KJ4MGXP1PXVT5SR3FZDB9H9S`) to the server/channel containing `01KJ6BZHYC2BBHMR8QQS278KR2` (or use the correct token/account for that channel).
+2. Re-run `node scripts/e2e-live-check.mjs` (now pinned by `.env` to outage channel).
+3. Once access succeeds, validate an in-channel mention-triggered reply (`@pepper ...`) end-to-end.
