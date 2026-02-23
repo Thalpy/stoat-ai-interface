@@ -15,6 +15,7 @@ import {
   resolveAccount,
 } from "./config.js";
 import type { ResolvedAccount } from "./config.js";
+import { buildStoatStartPlan } from "./start-plan.js";
 
 const stoatPlugin = {
   id: "stoat",
@@ -122,27 +123,11 @@ const stoatPlugin = {
   
   gateway: {
     startAccount: async (ctx: any) => {
-      const account = ctx.account as ResolvedAccount;
-      const token = account.token?.trim();
-      
-      if (!token) {
-        throw new Error(
-          `Stoat bot token missing for account "${account.accountId}"`
-        );
-      }
-      
-      ctx.log?.info(`[${account.accountId}] starting Stoat provider`);
-      
-      return monitorStoatProvider({
-        token,
-        accountId: account.accountId,
-        config: ctx.cfg,
-        apiUrl: account.config.apiUrl,
-        runtime: ctx.runtime,
-        abortSignal: ctx.abortSignal,
-        mediaMaxMb: account.config.mediaMaxMb,
-        historyLimit: account.config.historyLimit,
-      });
+      const startPlan = buildStoatStartPlan(ctx);
+
+      ctx.log?.info(`[${startPlan.accountId}] starting Stoat provider`);
+
+      return monitorStoatProvider(startPlan);
     },
   },
   

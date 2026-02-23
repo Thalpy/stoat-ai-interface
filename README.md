@@ -123,8 +123,9 @@ Use this quick loop when validating local changes:
 5. Perform a simple DM + mention test in Stoat to confirm inbound/outbound path
 
 Notes:
-- `npm test` runs smoke tests plus config-resolution tests using Node's `--experimental-strip-types` loader.
+- `npm test` runs smoke tests, config-resolution tests, and startup-plan dry-run tests using Node's `--experimental-strip-types` loader.
 - Account resolution/merge behavior is covered in `test/config.test.mjs` to keep multi-account config compatibility stable.
+- Plugin startup planning is covered in `test/start-plan.test.mjs` via `buildStoatStartPlan`, which validates required startup inputs without making external network connections.
 
 See `ROADMAP.md` for the bring-up plan and quality gates.
 

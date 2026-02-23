@@ -13,7 +13,7 @@ Goal: get `stoat-ai-interface` reliably working in an OpenClaw environment with 
 
 - [ ] Verify plugin manifest and entrypoints are compatible with current OpenClaw loading expectations
 - [x] Validate channel config shape and required env/config fields
-- [ ] Add a minimal dry-run/smoke path for plugin init (without external network dependency)
+- [x] Add a minimal dry-run/smoke path for plugin init (without external network dependency)
 - [ ] Document known compatibility assumptions and version constraints
 
 ## Phase 3 — End-to-End Validation
