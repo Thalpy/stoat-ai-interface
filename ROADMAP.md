@@ -10,7 +10,7 @@ Goal: get `stoat-ai-interface` reliably working in an OpenClaw environment with 
 
 ## Phase 1 — Baseline Verification
 
-- [ ] Install dependencies and confirm clean install
+- [x] Install dependencies and confirm clean install
 - [x] Run typecheck and resolve any compile/type issues
 - [x] Add and run baseline unit tests (`npm test`)
 - [x] Document local run/verification workflow in README
@@ -24,11 +24,17 @@ Goal: get `stoat-ai-interface` reliably working in an OpenClaw environment with 
 
 ## Phase 3 — End-to-End Validation
 
-- [ ] Test connection against a real Stoat instance with bot token
-- [ ] Verify inbound message routing behavior (mention-gating + DM)
-- [ ] Verify outbound send/reply behavior
-- [ ] Verify reactions/typing behavior
-- [ ] Capture setup/troubleshooting notes from real run
+- [x] Test connection against a real Stoat instance with bot token
+- [x] Verify inbound message routing behavior (mention-gating + DM)
+- [x] Verify outbound send/reply behavior
+- [x] Verify reactions/typing behavior
+- [x] Capture setup/troubleshooting notes from real run
+
+## Validation Evidence Snapshot
+
+- Real-instance live check script: `scripts/e2e-live-check.mjs`
+- Inbound routing guard tests (mention-gating + DM): `test/monitor-routing.test.mjs`
+- Manifest/entry compatibility tests: `test/manifest-compat.test.mjs`
 
 ## Quality Gates (Every Iteration)
 

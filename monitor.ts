@@ -6,6 +6,7 @@
 
 import { Client } from "stoat.js";
 import { getStoatRuntime, getStoatPluginApi } from "./runtime.js";
+import { shouldProcessInboundMessage } from "./routing.js";
 
 // Command prefix for text commands
 const COMMAND_PREFIX = "!";
@@ -617,11 +618,8 @@ export async function monitorStoatProvider(opts: MonitorOptions): Promise<() => 
   client.on("messageCreate", async (message) => {
     if (stopped) return;
     
-    // Skip own messages
-    if (message.author?.id === client.user?.id) return;
-    
-    // Skip system messages
-    if ((message as any).system) return;
+    const isSelf = message.author?.id === client.user?.id;
+    const isSystem = Boolean((message as any).system);
     
     const senderName = message.author?.username ?? "Unknown";
     const text = message.content ?? "";
@@ -641,17 +639,19 @@ export async function monitorStoatProvider(opts: MonitorOptions): Promise<() => 
     // Check channel settings for read-all mode
     const channelConfig = getChannelSettings(channelId);
     const readAllEnabled = channelConfig.readAll;
-    
+
     // In channels, require mention unless read-all is enabled. In DMs, always respond.
-    const isMentioned = botUserId && text.includes(`<@${botUserId}>`);
-    
+    const isMentioned = Boolean(botUserId && text.includes(`<@${botUserId}>`));
+
     // Commands with ! prefix should always work (even without mention)
     const textTrimmed = text.replace(/<@[^>]+>/g, "").trim();
     const isCommandMessage = textTrimmed.startsWith(COMMAND_PREFIX);
-    
-    if (!isDM && !isMentioned && !readAllEnabled && !isCommandMessage) {
-      // Not mentioned, read-all not enabled, and not a command - ignore silently
-      return;
+
+    if (!readAllEnabled && !isCommandMessage) {
+      if (!shouldProcessInboundMessage({ isSelf, isSystem, isDM, isMentioned })) return;
+    } else {
+      // Even in read-all/command mode, still ignore bot/system messages.
+      if (isSelf || isSystem) return;
     }
     
     const modeLabel = isDM ? 'DM' : (readAllEnabled ? 'read-all' : (isMentioned ? 'mentioned' : 'command'));

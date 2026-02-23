@@ -141,6 +141,20 @@ Notes:
 - Plugin startup planning is covered in `test/start-plan.test.mjs` via `buildStoatStartPlan`, which validates required startup inputs without making external network connections.
 - Plugin loader compatibility is covered in `test/manifest-compat.test.mjs`, validating `clawdbot.plugin.json`, `package.json` entry metadata, and `index.ts` exports expected by OpenClaw/Clawdbot.
 
+### Live E2E Verification (real instance)
+
+```bash
+node scripts/e2e-live-check.mjs
+```
+
+This validates, against the configured real Stoat instance (`.env`):
+- bot login/connect
+- typing indicator start/stop
+- outbound send + reply
+- reaction add
+
+The script attempts to delete its probe messages after checks.
+
 See `ROADMAP.md` for the bring-up plan and quality gates.
 
 ## Credits
