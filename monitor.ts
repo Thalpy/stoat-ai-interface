@@ -6,7 +6,7 @@
 
 import { Client } from "stoat.js";
 import { getStoatRuntime, getStoatPluginApi } from "./runtime.js";
-import { shouldProcessInboundMessage } from "./routing.js";
+import { messageMentionsBot, shouldProcessInboundMessage } from "./routing.js";
 
 // Command prefix for text commands
 const COMMAND_PREFIX = "!";
@@ -646,7 +646,14 @@ export async function monitorStoatProvider(opts: MonitorOptions): Promise<() => 
     const readAllEnabled = channelConfig.readAll;
 
     // In channels, require mention unless read-all is enabled. In DMs, always respond.
-    const isMentioned = Boolean(botUserId && text.includes(`<@${botUserId}>`));
+    const mentionIds = Array.isArray((message as any).mentionIds)
+      ? ((message as any).mentionIds as string[])
+      : Array.isArray((message as any).mentions)
+        ? ((message as any).mentions as any[])
+            .map((m) => m?.id)
+            .filter((id): id is string => typeof id === "string")
+        : undefined;
+    const isMentioned = messageMentionsBot({ text, botUserId, mentionIds });
 
     // Commands with ! prefix should always work (even without mention)
     const textTrimmed = text.replace(/<@[^>]+>/g, "").trim();
