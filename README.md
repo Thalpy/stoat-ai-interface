@@ -108,8 +108,11 @@ stoat-ai-interface/
 
 ```bash
 npm install
+npm test
 npm run typecheck
 ```
+
+See `ROADMAP.md` for the bring-up plan and quality gates.
 
 ## Credits
 
