@@ -7,7 +7,7 @@ Goal: get `stoat-ai-interface` reliably working in an OpenClaw environment with 
 - [ ] Install dependencies and confirm clean install
 - [x] Run typecheck and resolve any compile/type issues
 - [x] Add and run baseline unit tests (`npm test`)
-- [ ] Document local run/verification workflow in README
+- [x] Document local run/verification workflow in README
 
 ## Phase 2 — Runtime Compatibility (OpenClaw)
 

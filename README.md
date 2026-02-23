@@ -112,6 +112,16 @@ npm test
 npm run typecheck
 ```
 
+### Local Bring-Up Verification Workflow
+
+Use this quick loop when validating local changes:
+
+1. `npm install` (once per dependency change)
+2. `npm test` to run smoke/config checks
+3. `npm run typecheck` to confirm TypeScript compatibility
+4. Start/restart gateway and watch plugin startup logs for Stoat account resolution
+5. Perform a simple DM + mention test in Stoat to confirm inbound/outbound path
+
 Notes:
 - `npm test` runs smoke tests plus config-resolution tests using Node's `--experimental-strip-types` loader.
 - Account resolution/merge behavior is covered in `test/config.test.mjs` to keep multi-account config compatibility stable.
