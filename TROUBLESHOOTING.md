@@ -133,3 +133,77 @@
   - `node scripts/e2e-live-check.mjs` ✅ connect/typing/send/reply/react
 
 Conclusion: channel/account alignment restored for current bot token; live e2e now passes on Pepperlabs General.
+
+## 2026-02-23 15:19:00 PST — Cron triage/health pass (Pepperlabs General `01KJ4MG98H44YMMSJ0BSSJZG1X`)
+
+### Scope
+- Checked bot liveness/connection path from local `.env`.
+- Ran requested diagnostics:
+  - `npm test`
+  - `npm run typecheck`
+  - `node scripts/e2e-live-check.mjs`
+- Re-validated runtime assumptions that can block replies in this channel (mention gating, token scope, channel id, DM/channel routing).
+
+### Findings
+1. **Liveness is healthy on the configured path**
+   - `.env` uses:
+     - `STOAT_BASE_URL=https://bamalam.xyz/api`
+     - `STOAT_WS_URL=wss://bamalam.xyz/ws`
+     - `STOAT_CHANNEL_ID=01KJ4MG98H44YMMSJ0BSSJZG1X`
+   - Live e2e result:
+     - `{"ok":true,"me":"pepper","channelId":"01KJ4MG98H44YMMSJ0BSSJZG1X","checks":["connect","typing","send","reply","react"]}`
+
+2. **Diagnostics are green**
+   - `npm test` ✅ (14/14)
+   - `npm run typecheck` ✅
+   - `node scripts/e2e-live-check.mjs` ✅
+
+3. **Runtime assumptions for this channel are satisfied**
+   - Mention gating: channel messages require mention; DMs are allowed without mention (`monitor.ts` + `routing.ts`).
+   - Account token: present in local `.env` (`STOAT_BOT_TOKEN`) and authenticated by successful e2e send/reply/react.
+   - Channel ID: resolves and is writable with current token (confirmed by e2e).
+   - DM/channel routing: plugin routes by peer kind/id; no hardcoded block for this channel.
+
+### Fix Applied
+- No code/config fix required in this pass (system already healthy for target channel).
+
+### Next Action
+- Keep runtime pointed at `01KJ4MG98H44YMMSJ0BSSJZG1X`; if users report misses, reproduce with exact message sample and confirm it includes an explicit `@pepper` mention in-channel.
+
+## 2026-02-23 15:23:47 PST — Cron triage/health pass (Pepperlabs General `01KJ4MG98H44YMMSJ0BSSJZG1X`)
+
+### Scope
+- Checked bot liveness and connection path with local `.env` values.
+- Ran diagnostics:
+  - `npm test`
+  - `npm run typecheck`
+  - `node scripts/e2e-live-check.mjs`
+- Re-validated runtime assumptions for this channel: mention gating, token scope, channel id, DM/channel routing.
+
+### Findings
+1. **Health evidence remains green**
+   - `npm test` ✅ (16/16)
+   - `npm run typecheck` ✅
+   - `node scripts/e2e-live-check.mjs` ✅ with:
+     - `{"ok":true,"me":"pepper","channelId":"01KJ4MG98H44YMMSJ0BSSJZG1X","checks":["connect","typing","send","reply","react"]}`
+
+2. **Concrete issue found and fixed (smallest safe change)**
+   - `monitor.ts` passed WS URL as `clientOpts.wsURL` to `new Client(clientOpts)`.
+   - `stoat.js` expects WS override via constructor second argument (`new Client({ baseURL }, { ws })`), as already used in `scripts/e2e-live-check.mjs`.
+   - Risk: explicit WS override from config could be ignored in runtime, causing missed connections/replies on instances that require a custom WS path.
+
+3. **Fix applied**
+   - Added `client-init.ts` with `buildStoatClientInit(apiUrl, wsUrl)` that maps:
+     - API URL -> `clientOptions.baseURL`
+     - WS URL -> `websocketOptions.ws`
+   - Updated `monitor.ts` to initialize client with:
+     - `new Client(clientOptions, websocketOptions)`
+   - Added unit test coverage in `test/monitor-client-init.test.mjs`.
+
+4. **Runtime assumptions for this channel**
+   - Mention-gating: still channel mention required, DM allowed without mention.
+   - Token/channel scope: valid for Pepperlabs General (proven by live e2e).
+   - DM/channel routing: by peer kind/id, no hardcoded block on this channel.
+
+### Next Action
+- Restart/reload gateway so monitor runtime picks up the WS-init fix, then continue normal mention-based in-channel validation (`@pepper ...`).

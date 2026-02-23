@@ -7,6 +7,7 @@
 import { Client } from "stoat.js";
 import { getStoatRuntime, getStoatPluginApi } from "./runtime.js";
 import { messageMentionsBot, shouldProcessInboundMessage } from "./routing.js";
+import { buildStoatClientInit } from "./client-init.js";
 
 // Command prefix for text commands
 const COMMAND_PREFIX = "!";
@@ -151,18 +152,16 @@ export async function monitorStoatProvider(opts: MonitorOptions): Promise<() => 
   const log = (msg: string) => runtime.log?.(`[stoat] [${accountId}] ${msg}`);
   const error = (msg: string) => runtime.error?.(`[stoat] [${accountId}] ${msg}`);
   
-  // Create client with custom API URL if provided
-  const clientOpts: any = {};
+  // Create client with custom API URL / WS URL if provided
+  const { clientOptions, websocketOptions } = buildStoatClientInit(apiUrl, wsUrl);
   if (apiUrl) {
-    clientOpts.baseURL = apiUrl;
     log(`Connecting to API ${apiUrl}`);
   }
   if (wsUrl) {
-    clientOpts.wsURL = wsUrl;
     log(`Connecting to WS ${wsUrl}`);
   }
-  
-  const client = new Client(clientOpts);
+
+  const client = new Client(clientOptions, websocketOptions);
   let stopped = false;
   
   // Store for sending
