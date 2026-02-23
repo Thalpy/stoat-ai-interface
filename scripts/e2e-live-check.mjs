@@ -30,8 +30,19 @@ try {
   await waitReady(client);
 
   const me = client.user?.username ?? 'unknown';
-  const channel = client.channels.get(channelId) || (await client.channels.fetch(channelId));
-  if (!channel) throw new Error(`Unable to resolve channel ${channelId}`);
+  const meId = client.user?.id ?? 'unknown';
+
+  let channel;
+  try {
+    channel = client.channels.get(channelId) || (await client.channels.fetch(channelId));
+  } catch (err) {
+    const msg = String(err?.message || err);
+    if (msg.includes('NotFound')) {
+      throw new Error(`Channel ${channelId} not found for bot ${me} (${meId}). Check channel ID and ensure the bot is in that server/channel.`);
+    }
+    throw err;
+  }
+  if (!channel) throw new Error(`Unable to resolve channel ${channelId} for bot ${me} (${meId})`);
 
   // typing indicator check
   channel.startTyping?.();
