@@ -1,0 +1,34 @@
+{
+  "name": "@clawdbot/stoat",
+  "version": "0.1.0",
+  "description": "Stoat messaging channel for Clawdbot",
+  "type": "module",
+  "main": "index.ts",
+  "types": "index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "stoat.js": "^7.3.6"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  },
+  "peerDependencies": {
+    "clawdbot": "*"
+  },
+  "clawdbot": {
+    "extensions": ["./index.ts"],
+    "channels": ["stoat"]
+  },
+  "keywords": [
+    "clawdbot",
+    "clawdbot-plugin",
+    "stoat",
+    "revolt",
+    "messaging",
+    "chat"
+  ],
+  "author": "Whimsycat",
+  "license": "MIT"
+}
