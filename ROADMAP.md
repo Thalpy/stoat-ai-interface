@@ -2,6 +2,12 @@
 
 Goal: get `stoat-ai-interface` reliably working in an OpenClaw environment with repeatable checks.
 
+## Input Handoff (Prior Bot Config Only)
+
+- [x] Import prior Stoat instance details (token/base URL/ws/server/channel/bot IDs) into local `.env`
+- [x] Record handoff context in `INSTANCE_HANDOFF.md`
+- [x] Preserve constraint: do not copy implementation code from prior bot
+
 ## Phase 1 — Baseline Verification
 
 - [ ] Install dependencies and confirm clean install
