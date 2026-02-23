@@ -100,6 +100,19 @@ stoat-ai-interface/
 
 - `stoat.js` (v7.3.6) - Official Stoat JavaScript SDK
 
+## Compatibility Assumptions & Version Constraints
+
+This plugin is currently validated with the following assumptions:
+
+- **Runtime:** Node.js 22+ (tests run via Node's `--experimental-strip-types` path).
+- **Loader shape:** Plugin loader can import the package `main` entry (`index.ts`) and call the exported default channel definition.
+- **Manifest shape:** `clawdbot.plugin.json` provides `entry`, `type: "channel"`, and matching package metadata expected by OpenClaw/Clawdbot plugin loading.
+- **Config contract:** Stoat config is read from `channels.stoat`, with support for top-level default account plus named accounts under `channels.stoat.accounts`.
+- **Startup requirement:** Each enabled account must resolve to a non-empty bot token before connection start.
+- **Network endpoints:** API and WS endpoints should be consistent for the same Stoat instance (e.g., `https://<host>/api` + `wss://<host>/ws`).
+
+If runtime/plugin-loader expectations change in a future OpenClaw release, re-run `npm test` and `npm run typecheck` first, then update manifest/entry compatibility tests.
+
 ## Known Issues
 
 - **Image handling:** Requires the Stoat server's Autumn file service to have valid SSL. Self-hosted instances with SSL issues will show images as URLs instead of inline.
