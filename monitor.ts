@@ -7,6 +7,53 @@
 import { Client } from "stoat.js";
 import { getStoatRuntime, getStoatPluginApi } from "./runtime.js";
 
+// Command prefix for text commands
+const COMMAND_PREFIX = "!";
+
+// Reaction triggers (emoji → command)
+const REACTION_COMMANDS: Record<string, string> = {
+  "🗑️": "clear",
+  "📊": "status",
+  "❓": "help",
+  "🧹": "clear",
+  "🔄": "refresh",
+  "⏹️": "stop",
+};
+
+// Text command definitions
+const TEXT_COMMANDS = ["status", "clear", "model", "help", "ping", "menu", "test"];
+
+// Rich embed colors
+const EMBED_COLORS = {
+  primary: "#9b59b6",    // Purple
+  success: "#2ecc71",    // Green
+  warning: "#f39c12",    // Orange
+  danger: "#e74c3c",     // Red
+  info: "#3498db",       // Blue
+};
+
+// Command response type - supports rich embeds and reaction buttons
+interface CommandResponse {
+  content?: string;
+  embed?: {
+    title?: string;
+    description?: string;
+    colour?: string;
+    icon_url?: string;
+    url?: string;
+  };
+  reactions?: string[];  // Preset reaction "buttons"
+  restrictReactions?: boolean;  // Only allow preset reactions
+}
+
+// Track interactive messages for reaction handling
+const interactiveMessages = new Map<string, {
+  sessionKey: string;
+  channelId: string;
+  reactions: Record<string, string>;  // emoji → action
+  expiresAt: number;
+}>();
+
 interface MonitorOptions {
   token: string;
   accountId: string;
@@ -67,6 +114,398 @@ export async function monitorStoatProvider(opts: MonitorOptions): Promise<() => 
     log(`✅ READY! Connected as ${username}`);
   });
   
+  // Command handler function - returns rich responses with embeds and reaction buttons
+  async function handleCommand(
+    command: string,
+    args: string[],
+    message: any,
+    channel: any,
+    sessionKey: string
+  ): Promise<CommandResponse | null> {
+    const core = getStoatRuntime();
+    
+    switch (command.toLowerCase()) {
+      case "help": {
+        return {
+          embed: {
+            title: "🐱 Whimsycat Commands",
+            description: `**Text Commands:**
+• \`!status\` - Show session info
+• \`!clear\` - Clear conversation context
+• \`!model <name>\` - Change AI model
+• \`!ping\` - Check if bot is alive
+• \`!menu\` - Interactive menu with buttons
+• \`!help\` - Show this help
+
+**Reaction Buttons:**
+• 📊 Status • 🗑️ Clear • ❓ Help • 🔄 Refresh`,
+            colour: EMBED_COLORS.primary,
+          },
+        };
+      }
+      
+      case "ping": {
+        const uptime = process.uptime();
+        const hours = Math.floor(uptime / 3600);
+        const mins = Math.floor((uptime % 3600) / 60);
+        return {
+          embed: {
+            title: "🏓 Pong!",
+            description: `Bot uptime: **${hours}h ${mins}m**`,
+            colour: EMBED_COLORS.success,
+          },
+        };
+      }
+      
+      case "menu": {
+        // Interactive menu with reaction "buttons"
+        return {
+          embed: {
+            title: "🎛️ Whimsycat Control Panel",
+            description: `Click a reaction to perform an action:
+
+📊 **Status** - View session info
+🗑️ **Clear** - Reset conversation
+🔄 **Refresh** - Refresh status
+❓ **Help** - Show help`,
+            colour: EMBED_COLORS.info,
+          },
+          reactions: ["📊", "🗑️", "🔄", "❓"],
+          restrictReactions: true,
+        };
+      }
+      
+      case "status":
+      case "refresh": {
+        try {
+          const sessions = core.session;
+          const session = sessions?.getSession?.(sessionKey);
+          const tokens = session?.totalTokens ?? 0;
+          const model = session?.model ?? "default";
+          const contextMax = session?.contextTokens ?? 200000;
+          const contextUsed = session?.totalTokens ?? 0;
+          const contextPercent = Math.round((contextUsed / contextMax) * 100);
+          
+          return {
+            embed: {
+              title: "📊 Session Status",
+              description: `**Model:** \`${model}\`
+**Tokens Used:** ${tokens.toLocaleString()}
+**Context:** ${contextPercent}% (${contextUsed.toLocaleString()} / ${contextMax.toLocaleString()})
+**Session:** \`${sessionKey.slice(0, 30)}...\``,
+              colour: contextPercent > 80 ? EMBED_COLORS.warning : EMBED_COLORS.primary,
+            },
+            reactions: ["🔄", "🗑️"],
+          };
+        } catch (err) {
+          return {
+            embed: {
+              title: "📊 Session Status",
+              description: `Session: \`${sessionKey.slice(0, 30)}...\`\n(Detailed stats unavailable)`,
+              colour: EMBED_COLORS.info,
+            },
+          };
+        }
+      }
+      
+      case "clear": {
+        try {
+          const sessions = core.session;
+          if (sessions?.clearSession) {
+            await sessions.clearSession(sessionKey);
+            return {
+              embed: {
+                title: "🧹 Context Cleared",
+                description: "Conversation history has been reset. Starting fresh!",
+                colour: EMBED_COLORS.success,
+              },
+            };
+          }
+          return {
+            embed: {
+              title: "⚠️ Clear Failed",
+              description: "Session manager unavailable",
+              colour: EMBED_COLORS.warning,
+            },
+          };
+        } catch (err) {
+          return {
+            embed: {
+              title: "❌ Error",
+              description: `Failed to clear: ${err}`,
+              colour: EMBED_COLORS.danger,
+            },
+          };
+        }
+      }
+      
+      case "model": {
+        const modelName = args[0];
+        if (!modelName) {
+          return {
+            embed: {
+              title: "🤖 Change Model",
+              description: `**Usage:** \`!model <name>\`
+
+**Available models:**
+• \`opus\` - Most capable
+• \`sonnet\` - Balanced
+• \`haiku\` - Fast & light`,
+              colour: EMBED_COLORS.info,
+            },
+          };
+        }
+        try {
+          const sessions = core.session;
+          if (sessions?.setSessionModel) {
+            await sessions.setSessionModel(sessionKey, modelName);
+            return {
+              embed: {
+                title: "✅ Model Changed",
+                description: `Now using: **${modelName}**`,
+                colour: EMBED_COLORS.success,
+              },
+            };
+          }
+          return {
+            embed: {
+              title: "⚠️ Change Failed",
+              description: "Session manager unavailable",
+              colour: EMBED_COLORS.warning,
+            },
+          };
+        } catch (err) {
+          return {
+            embed: {
+              title: "❌ Error",
+              description: `Failed to change model: ${err}`,
+              colour: EMBED_COLORS.danger,
+            },
+          };
+        }
+      }
+      
+      case "test": {
+        // Comprehensive test of all bot features
+        // We'll send multiple messages to test different features
+        const testResults: string[] = [];
+        
+        // Test 1: Basic text message
+        try {
+          await channel.sendMessage({
+            content: "🧪 **Test 1/6: Basic Text Message**\n✅ If you can read this, basic messaging works!",
+            replies: [{ id: message.id, mention: false }],
+          });
+          testResults.push("✅ Basic text");
+        } catch (err) {
+          testResults.push(`❌ Basic text: ${err}`);
+        }
+        
+        await new Promise(r => setTimeout(r, 500));
+        
+        // Test 2: Rich Embed
+        try {
+          await channel.sendMessage({
+            embeds: [{
+              title: "🧪 Test 2/6: Rich Embed",
+              description: "Testing embed features:\n• **Bold text**\n• *Italic text*\n• `Code text`",
+              colour: EMBED_COLORS.primary,
+            }],
+          });
+          testResults.push("✅ Rich embed");
+        } catch (err) {
+          testResults.push(`❌ Rich embed: ${err}`);
+        }
+        
+        await new Promise(r => setTimeout(r, 500));
+        
+        // Test 3: Colored Embeds
+        try {
+          await channel.sendMessage({
+            embeds: [{
+              title: "🧪 Test 3/6: Colored Sidebars",
+              description: "This embed has a **purple** sidebar!",
+              colour: "#9b59b6",
+            }],
+          });
+          await channel.sendMessage({
+            embeds: [{
+              title: "🟢 Green",
+              description: "Success color",
+              colour: EMBED_COLORS.success,
+            }],
+          });
+          await channel.sendMessage({
+            embeds: [{
+              title: "🔴 Red",
+              description: "Danger color", 
+              colour: EMBED_COLORS.danger,
+            }],
+          });
+          testResults.push("✅ Colored embeds");
+        } catch (err) {
+          testResults.push(`❌ Colored embeds: ${err}`);
+        }
+        
+        await new Promise(r => setTimeout(r, 500));
+        
+        // Test 4: Preset Reactions (Reaction Buttons)
+        try {
+          const reactionMsg = await channel.sendMessage({
+            embeds: [{
+              title: "🧪 Test 4/6: Reaction Buttons",
+              description: "This message should have preset reaction 'buttons'.\nClick one to trigger an action!",
+              colour: EMBED_COLORS.info,
+            }],
+            interactions: {
+              reactions: ["📊", "🗑️", "❓"],
+              restrict_reactions: true,
+            },
+          });
+          testResults.push("✅ Preset reactions");
+        } catch (err) {
+          testResults.push(`❌ Preset reactions: ${err}`);
+        }
+        
+        await new Promise(r => setTimeout(r, 500));
+        
+        // Test 5: Message Editing
+        try {
+          const editMsg = await channel.sendMessage({
+            embeds: [{
+              title: "🧪 Test 5/6: Message Editing",
+              description: "⏳ This message will be edited in 2 seconds...",
+              colour: EMBED_COLORS.warning,
+            }],
+          });
+          
+          await new Promise(r => setTimeout(r, 2000));
+          
+          await editMsg.edit({
+            embeds: [{
+              title: "🧪 Test 5/6: Message Editing",
+              description: "✅ **Message successfully edited!**\nThe content changed from the original.",
+              colour: EMBED_COLORS.success,
+            }],
+          });
+          testResults.push("✅ Message editing");
+        } catch (err) {
+          testResults.push(`❌ Message editing: ${err}`);
+        }
+        
+        await new Promise(r => setTimeout(r, 500));
+        
+        // Test 6: Masquerade (custom name/avatar)
+        try {
+          await channel.sendMessage({
+            content: "🧪 **Test 6/6: Masquerade**\nThis message should appear with a different name!",
+            masquerade: {
+              name: "🤖 Test Bot",
+              colour: "#e74c3c",
+            },
+          });
+          testResults.push("✅ Masquerade");
+        } catch (err) {
+          testResults.push(`❌ Masquerade: ${err}`);
+        }
+        
+        await new Promise(r => setTimeout(r, 500));
+        
+        // Final summary
+        const passed = testResults.filter(r => r.startsWith("✅")).length;
+        const failed = testResults.filter(r => r.startsWith("❌")).length;
+        
+        return {
+          embed: {
+            title: `🧪 Test Complete: ${passed}/${passed + failed} Passed`,
+            description: `**Results:**\n${testResults.join("\n")}\n\n${
+              failed === 0 
+                ? "🎉 All features working!" 
+                : "⚠️ Some features need attention."
+            }`,
+            colour: failed === 0 ? EMBED_COLORS.success : EMBED_COLORS.warning,
+          },
+        };
+      }
+      
+      default:
+        return null; // Not a recognized command
+    }
+  }
+  
+  // Send a command response (with embed and reaction buttons)
+  async function sendCommandResponse(
+    channel: any,
+    response: CommandResponse,
+    replyToId?: string,
+    sessionKey?: string
+  ): Promise<string | null> {
+    try {
+      const messageData: any = {};
+      
+      if (response.content) {
+        messageData.content = response.content;
+      }
+      
+      if (response.embed) {
+        messageData.embeds = [response.embed];
+      }
+      
+      if (replyToId) {
+        messageData.replies = [{ id: replyToId, mention: false }];
+      }
+      
+      if (response.reactions && response.restrictReactions) {
+        messageData.interactions = {
+          reactions: response.reactions,
+          restrict_reactions: true,
+        };
+      }
+      
+      const sent = await channel.sendMessage(messageData);
+      const messageId = sent?.id;
+      
+      // If we have reaction buttons (but not restricted), add them manually
+      if (response.reactions && !response.restrictReactions && messageId) {
+        for (const emoji of response.reactions) {
+          try {
+            await sent.react(emoji);
+          } catch {}
+        }
+      }
+      
+      // Track interactive messages for reaction handling
+      if (response.reactions && messageId && sessionKey) {
+        const reactionMap: Record<string, string> = {};
+        for (const emoji of response.reactions) {
+          if (REACTION_COMMANDS[emoji]) {
+            reactionMap[emoji] = REACTION_COMMANDS[emoji];
+          }
+        }
+        
+        interactiveMessages.set(messageId, {
+          sessionKey,
+          channelId: channel.id,
+          reactions: reactionMap,
+          expiresAt: Date.now() + (30 * 60 * 1000), // 30 min expiry
+        });
+        
+        // Cleanup old entries
+        const now = Date.now();
+        for (const [id, data] of interactiveMessages) {
+          if (data.expiresAt < now) {
+            interactiveMessages.delete(id);
+          }
+        }
+      }
+      
+      return messageId;
+    } catch (err) {
+      error(`Failed to send command response: ${err}`);
+      return null;
+    }
+  }
+  
   // Handle incoming messages
   client.on("messageCreate", async (message) => {
     if (stopped) return;
@@ -100,6 +539,43 @@ export async function monitorStoatProvider(opts: MonitorOptions): Promise<() => 
     }
     
     log(`📨 MESSAGE RECEIVED: "${text}" from ${senderName}${hasMedia ? ` [${attachments.length} attachment(s)]` : ''}${isMentioned ? ' [mentioned]' : ' [DM]'}`);
+    
+    // Check for text commands (strip mention first)
+    const textWithoutMention = text.replace(/<@[^>]+>/g, "").trim();
+    const isCommand = textWithoutMention.startsWith(COMMAND_PREFIX);
+    
+    if (isCommand) {
+      const commandText = textWithoutMention.slice(COMMAND_PREFIX.length).trim();
+      const [commandName, ...args] = commandText.split(/\s+/);
+      
+      if (TEXT_COMMANDS.includes(commandName.toLowerCase())) {
+        log(`🎮 COMMAND: ${commandName} ${args.join(" ")}`);
+        
+        // Get session key for commands that need it
+        const core = getStoatRuntime();
+        const cfg = core.config.loadConfig();
+        const channelId = (channel as any)?.id ?? message.channelId;
+        const route = core.channel.routing.resolveAgentRoute({
+          cfg,
+          channel: "stoat",
+          accountId,
+          peer: {
+            kind: isDM ? "dm" : "channel",
+            id: isDM ? senderId : channelId,
+          },
+        });
+        
+        const response = await handleCommand(commandName, args, message, channel, route.sessionKey);
+        
+        if (response) {
+          const sentId = await sendCommandResponse(channel, response, message.id, route.sessionKey);
+          if (sentId) {
+            log(`✅ Command response sent (id: ${sentId})`);
+          }
+        }
+        return; // Don't process as regular message
+      }
+    }
     
     // React with 👀 to show we're processing
     try {
@@ -361,6 +837,101 @@ export async function monitorStoatProvider(opts: MonitorOptions): Promise<() => 
       } catch {}
       
       error(`Failed to route message: ${err}`);
+    }
+  });
+  
+  // Handle reaction-based commands (reaction "buttons")
+  client.on("messageReactionAdd" as any, async (reaction: any) => {
+    if (stopped) return;
+    
+    try {
+      // Get the emoji - might be a string or an object
+      const emoji = typeof reaction.emoji === "string" 
+        ? reaction.emoji 
+        : reaction.emoji?.name ?? reaction.emoji?.id;
+      
+      // Don't respond to bot's own reactions
+      if (reaction.user?.id === client.user?.id) return;
+      
+      // Get the message that was reacted to
+      const message = reaction.message;
+      const messageId = message?.id;
+      const channel = message?.channel;
+      
+      if (!channel || !messageId) {
+        return;
+      }
+      
+      // Check if this is an interactive message we're tracking
+      const interactive = interactiveMessages.get(messageId);
+      let command: string | undefined;
+      let sessionKey: string;
+      
+      if (interactive && interactive.reactions[emoji]) {
+        // This is a tracked interactive message
+        command = interactive.reactions[emoji];
+        sessionKey = interactive.sessionKey;
+        log(`🎯 BUTTON CLICK: ${emoji} → ${command} (interactive message)`);
+      } else if (REACTION_COMMANDS[emoji]) {
+        // Generic reaction command on any message
+        command = REACTION_COMMANDS[emoji];
+        
+        // Get session key from routing
+        const core = getStoatRuntime();
+        const cfg = core.config.loadConfig();
+        const channelId = (channel as any)?.id ?? message?.channelId;
+        const channelType = (channel as any)?.type ?? (channel as any)?.channelType;
+        const isDM = channelType === "DirectMessage" || channelType === "Group";
+        const senderId = reaction.user?.id ?? "unknown";
+        
+        const route = core.channel.routing.resolveAgentRoute({
+          cfg,
+          channel: "stoat",
+          accountId,
+          peer: {
+            kind: isDM ? "dm" : "channel",
+            id: isDM ? senderId : channelId,
+          },
+        });
+        sessionKey = route.sessionKey;
+        log(`🎯 REACTION COMMAND: ${emoji} → ${command}`);
+      } else {
+        return; // Not a command reaction
+      }
+      
+      const response = await handleCommand(command, [], message, channel, sessionKey);
+      
+      if (response) {
+        // For interactive messages, try to edit the original instead of sending new
+        if (interactive && response.embed) {
+          try {
+            const editData: any = {};
+            if (response.embed) {
+              editData.embeds = [response.embed];
+            }
+            if (response.content) {
+              editData.content = response.content;
+            }
+            await message.edit(editData);
+            log(`✅ Interactive message updated`);
+            
+            // Remove the user's reaction to show it was processed
+            try {
+              await message.unreact(emoji, reaction.user?.id);
+            } catch {}
+            
+            return;
+          } catch (err) {
+            log(`Could not edit message, sending new: ${err}`);
+          }
+        }
+        
+        // Send as new message
+        await sendCommandResponse(channel, response, undefined, sessionKey);
+        log(`✅ Reaction command response sent`);
+      }
+    } catch (err) {
+      error(`Failed to handle reaction: ${err}`);
     }
   });
   
