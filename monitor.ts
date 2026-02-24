@@ -21,7 +21,66 @@ const REACTION_COMMANDS: Record<string, string> = {
 };
 
 // Text command definitions
-const TEXT_COMMANDS = ["status", "clear", "model", "help", "ping", "menu", "test"];
+const TEXT_COMMANDS = ["status", "clear", "model", "help", "ping", "menu", "test", "toggle-read-all", "read-mode"];
+
+// Per-channel settings storage (persists in memory, could be extended to file)
+import * as fs from "fs";
+import * as path from "path";
+
+const SETTINGS_FILE = path.join(process.env.HOME || "/tmp", ".clawdbot", "stoat-channel-settings.json");
+
+interface ChannelSettings {
+  readAll: boolean;  // If true, respond to all messages (not just @mentions)
+}
+
+const channelSettings = new Map<string, ChannelSettings>();
+
+// Load settings from file
+function loadChannelSettings(): void {
+  try {
+    if (fs.existsSync(SETTINGS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf-8"));
+      for (const [channelId, settings] of Object.entries(data)) {
+        channelSettings.set(channelId, settings as ChannelSettings);
+      }
+    }
+  } catch (err) {
+    console.error(`[stoat] Failed to load channel settings: ${err}`);
+  }
+}
+
+// Save settings to file
+function saveChannelSettings(): void {
+  try {
+    const dir = path.dirname(SETTINGS_FILE);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    const data: Record<string, ChannelSettings> = {};
+    for (const [channelId, settings] of channelSettings) {
+      data[channelId] = settings;
+    }
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(data, null, 2));
+  } catch (err) {
+    console.error(`[stoat] Failed to save channel settings: ${err}`);
+  }
+}
+
+// Get settings for a channel
+function getChannelSettings(channelId: string): ChannelSettings {
+  return channelSettings.get(channelId) || { readAll: false };
+}
+
+// Set settings for a channel
+function setChannelReadAll(channelId: string, readAll: boolean): void {
+  const settings = getChannelSettings(channelId);
+  settings.readAll = readAll;
+  channelSettings.set(channelId, settings);
+  saveChannelSettings();
+}
+
+// Load settings on module init
+loadChannelSettings();
 
 // Rich embed colors
 const EMBED_COLORS = {
@@ -135,6 +194,9 @@ export async function monitorStoatProvider(opts: MonitorOptions): Promise<() => 
 • \`!model <name>\` - Change AI model
 • \`!ping\` - Check if bot is alive
 • \`!menu\` - Interactive menu with buttons
+• \`!toggle-read-all\` - Toggle read-all mode
+• \`!read-mode\` - Show current read mode
+• \`!test\` - Run feature tests
 • \`!help\` - Show this help
 
 **Reaction Buttons:**
@@ -283,6 +345,51 @@ export async function monitorStoatProvider(opts: MonitorOptions): Promise<() => 
             },
           };
         }
+      }
+      
+      case "toggle-read-all": {
+        // Toggle whether the bot reads all messages or only @mentions
+        const channelId = (channel as any)?.id;
+        if (!channelId) {
+          return {
+            embed: {
+              title: "❌ Error",
+              description: "Could not determine channel ID",
+              colour: EMBED_COLORS.danger,
+            },
+          };
+        }
+        
+        const currentSettings = getChannelSettings(channelId);
+        const newReadAll = !currentSettings.readAll;
+        setChannelReadAll(channelId, newReadAll);
+        
+        return {
+          embed: {
+            title: newReadAll ? "👁️ Read-All Mode: ON" : "👁️ Read-All Mode: OFF",
+            description: newReadAll 
+              ? "I will now respond to **all messages** in this channel.\n\n*Use `!toggle-read-all` to switch back to @mention-only mode.*"
+              : "I will now only respond when **@mentioned**.\n\n*Use `!toggle-read-all` to enable read-all mode.*",
+            colour: newReadAll ? EMBED_COLORS.success : EMBED_COLORS.info,
+          },
+        };
+      }
+      
+      case "read-mode": {
+        // Show current read mode for this channel
+        const channelId = (channel as any)?.id;
+        const settings = channelId ? getChannelSettings(channelId) : { readAll: false };
+        
+        return {
+          embed: {
+            title: "👁️ Current Read Mode",
+            description: settings.readAll
+              ? "**Mode:** Read All Messages\nI respond to every message in this channel."
+              : "**Mode:** @Mention Only\nI only respond when directly @mentioned.",
+            colour: EMBED_COLORS.info,
+          },
+          reactions: ["🔄"],  // Quick toggle button
+        };
       }
       
       case "test": {
@@ -524,21 +631,31 @@ export async function monitorStoatProvider(opts: MonitorOptions): Promise<() => 
     const attachments = (message as any).attachments ?? [];
     const hasMedia = attachments.length > 0;
     
-    // Check if bot is mentioned (require @mention in channels)
+    // Check if bot is mentioned (require @mention in channels unless read-all is enabled)
     const botUserId = client.user?.id;
     const channel = message.channel;
     const channelType = (channel as any)?.type ?? (channel as any)?.channelType;
     const isDM = channelType === "DirectMessage" || channelType === "Group";
+    const channelId = (channel as any)?.id ?? message.channelId;
     
-    // In channels, require mention. In DMs, always respond.
+    // Check channel settings for read-all mode
+    const channelConfig = getChannelSettings(channelId);
+    const readAllEnabled = channelConfig.readAll;
+    
+    // In channels, require mention unless read-all is enabled. In DMs, always respond.
     const isMentioned = botUserId && text.includes(`<@${botUserId}>`);
     
-    if (!isDM && !isMentioned) {
-      // Not mentioned in a channel, ignore silently
+    // Commands with ! prefix should always work (even without mention)
+    const textTrimmed = text.replace(/<@[^>]+>/g, "").trim();
+    const isCommandMessage = textTrimmed.startsWith(COMMAND_PREFIX);
+    
+    if (!isDM && !isMentioned && !readAllEnabled && !isCommandMessage) {
+      // Not mentioned, read-all not enabled, and not a command - ignore silently
       return;
     }
     
-    log(`📨 MESSAGE RECEIVED: "${text}" from ${senderName}${hasMedia ? ` [${attachments.length} attachment(s)]` : ''}${isMentioned ? ' [mentioned]' : ' [DM]'}`);
+    const modeLabel = isDM ? 'DM' : (readAllEnabled ? 'read-all' : (isMentioned ? 'mentioned' : 'command'));
+    log(`📨 MESSAGE RECEIVED: "${text}" from ${senderName}${hasMedia ? ` [${attachments.length} attachment(s)]` : ''} [${modeLabel}]`);
     
     // Check for text commands (strip mention first)
     const textWithoutMention = text.replace(/<@[^>]+>/g, "").trim();
@@ -754,7 +871,9 @@ export async function monitorStoatProvider(opts: MonitorOptions): Promise<() => 
             const replyText = payload.text ?? payload;
             if (!replyText) return;
             
-            log(`📤 SENDING REPLY: "${String(replyText).slice(0, 50)}..."`);
+            const textPreview = String(replyText).slice(0, 80).replace(/\n/g, ' ');
+            log(`📤 DELIVERING: "${textPreview}${replyText.length > 80 ? '...' : ''}"`);
+            
             try {
               // Send with reply reference to the original message
               await (channel as any).sendMessage({
@@ -763,7 +882,7 @@ export async function monitorStoatProvider(opts: MonitorOptions): Promise<() => 
               });
               didReply = true;
               lastReplyTime = Date.now();
-              log(`✅ Reply sent (replying to ${messageId})`);
+              log(`✅ Reply sent at ${new Date().toISOString()} (replying to ${messageId})`);
             } catch (err) {
               error(`Failed to send reply: ${err}`);
             }
@@ -789,6 +908,51 @@ export async function monitorStoatProvider(opts: MonitorOptions): Promise<() => 
       
       markDispatchIdle();
       
+      // The dispatch has returned, but the AI might still be processing (tool calls, etc.)
+      // We need to wait until the session is truly idle
+      // 
+      // Strategy: Keep checking if we're receiving new replies. Wait for a quiet period.
+      // Also check if the session is still active via the session API.
+      
+      const QUIET_PERIOD = 3000;   // 3 seconds of no new replies = probably done
+      const CHECK_INTERVAL = 500;  // Check every 500ms
+      const MAX_WAIT = 180000;     // 3 minute max wait (for long tool operations)
+      const startWait = Date.now();
+      
+      let lastSeenReplyTime = lastReplyTime;
+      let quietSince = lastReplyTime > 0 ? lastReplyTime : Date.now();
+      
+      // Keep typing indicator running while we wait
+      log(`⏳ Dispatch returned, monitoring for completion...`);
+      
+      while (Date.now() - startWait < MAX_WAIT) {
+        await new Promise(resolve => setTimeout(resolve, CHECK_INTERVAL));
+        
+        // Check if we got new replies
+        if (lastReplyTime > lastSeenReplyTime) {
+          log(`📝 New reply detected at ${new Date(lastReplyTime).toISOString()}`);
+          lastSeenReplyTime = lastReplyTime;
+          quietSince = lastReplyTime;
+        }
+        
+        // Check if we've been quiet long enough
+        const quietDuration = Date.now() - quietSince;
+        if (quietDuration >= QUIET_PERIOD) {
+          log(`⏱️ Quiet for ${quietDuration}ms, assuming complete`);
+          break;
+        }
+        
+        // Optional: Try to check session status
+        try {
+          const sessions = core.session;
+          const session = sessions?.getSession?.(route.sessionKey);
+          if (session && !(session as any).isProcessing) {
+            log(`📊 Session reports not processing`);
+            // Still wait the quiet period to be safe
+          }
+        } catch {}
+      }
+      
       // Stop typing indicator
       if (typingInterval) {
         clearInterval(typingInterval);
@@ -797,18 +961,8 @@ export async function monitorStoatProvider(opts: MonitorOptions): Promise<() => 
         await (channel as any).stopTyping?.();
       } catch {}
       
-      // Wait a moment after dispatch completes to ensure all replies are delivered
-      // This handles cases where the AI does tool calls after initial response
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
       // Only mark complete if we actually sent a reply
       if (didReply) {
-        // Additional wait if last reply was very recent (might be more coming)
-        const timeSinceLastReply = Date.now() - lastReplyTime;
-        if (timeSinceLastReply < 500) {
-          await new Promise(resolve => setTimeout(resolve, 500 - timeSinceLastReply));
-        }
-        
         try {
           await message.unreact("👀");
           await message.react("✅");
