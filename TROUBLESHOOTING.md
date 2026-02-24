@@ -207,3 +207,126 @@ Conclusion: channel/account alignment restored for current bot token; live e2e n
 
 ### Next Action
 - Restart/reload gateway so monitor runtime picks up the WS-init fix, then continue normal mention-based in-channel validation (`@pepper ...`).
+
+## 2026-02-23 15:25:19 PST — Cron scratch bring-up pass (channel `01KJ6BZHYC2BBHMR8QQS278KR2`)
+
+### Scope
+- Followed scratch bring-up instructions from `START_FROM_SCRATCH.md` / `INSTANCE_HANDOFF.md` / `README.md`.
+- Assumed test/typecheck baseline as instructed; prioritized live path check.
+- Ran live verifier against requested channel:
+  - `STOAT_CHANNEL_ID=01KJ6BZHYC2BBHMR8QQS278KR2 node scripts/e2e-live-check.mjs`
+
+### Findings
+- Live verifier failed immediately with:
+  - `Channel 01KJ6BZHYC2BBHMR8QQS278KR2 not found for bot pepper (01KJ4MGXP1PXVT5SR3FZDB9H9S).`
+- This is runtime evidence of channel visibility/membership mismatch for the active bot token (not a code regression in mention/reply path).
+
+### Required Operator Input
+- NEED: Bot membership/access for channel `01KJ6BZHYC2BBHMR8QQS278KR2` (or correct token for the bot that has access).
+- WHY: The bot identity from current token cannot resolve that channel (`NotFound`), so online presence and mention-reply path cannot be verified there.
+- HOW_TO_PROVIDE: Invite bot `pepper` (`01KJ4MGXP1PXVT5SR3FZDB9H9S`) to the server/channel containing `01KJ6BZHYC2BBHMR8QQS278KR2`, or update `.env` with the token of a bot already in that channel; then rerun the same e2e command.
+
+## 2026-02-23 15:27 PST — Cron live health pass (working channel `01KJ4MG98H44YMMSJ0BSSJZG1X`)
+
+### Scope
+- Used local `.env` as source of truth.
+- Ran live verifier exactly as requested:
+  - `node scripts/e2e-live-check.mjs`
+
+### Findings
+- Live verifier passed end-to-end on configured working channel.
+- Result:
+  - `{"ok":true,"me":"pepper","channelId":"01KJ4MG98H44YMMSJ0BSSJZG1X","checks":["connect","typing","send","reply","react"]}`
+- No token/channel/access/routing remediation was needed in this pass.
+
+### Fix Applied
+- None (no regression detected).
+
+### Blockers
+- None for working channel `01KJ4MG98H44YMMSJ0BSSJZG1X`.
+
+## 2026-02-23 15:30 PST — Cron live health pass (working channel `01KJ4MG98H44YMMSJ0BSSJZG1X`)
+
+### Scope
+- Used local `.env` as source of truth.
+- Ran live verifier:
+  - `node scripts/e2e-live-check.mjs`
+
+### Findings
+- Live verifier passed end-to-end on working channel.
+- Result:
+  - `{"ok":true,"me":"pepper","channelId":"01KJ4MG98H44YMMSJ0BSSJZG1X","checks":["connect","typing","send","reply","react"]}`
+- No token/channel/access/routing issues detected in this pass.
+
+### Fix Applied
+- None.
+
+### Blockers
+- None.
+
+## 2026-02-23 15:37 PST — Cron live health pass (working channel `01KJ4MG98H44YMMSJ0BSSJZG1X`)
+
+### Scope
+- Used local `.env` as source of truth.
+- Ran live verifier:
+  - `node scripts/e2e-live-check.mjs`
+
+### Findings
+- Live verifier passed end-to-end on working channel.
+- Result:
+  - `{"ok":true,"me":"pepper","channelId":"01KJ4MG98H44YMMSJ0BSSJZG1X","checks":["connect","typing","send","reply","react"]}`
+- No token/channel/access/routing issues detected in this pass.
+
+### Fix Applied
+- None.
+
+### Blockers
+- None.
+
+## 2026-02-23 15:52 PT — Live health pass
+- Ran `node scripts/e2e-live-check.mjs` from project root.
+- Result: `ok:true` for channel `01KJ4MG98H44YMMSJ0BSSJZG1X`.
+- Checks passed: connect, typing, send, reply, react.
+- No fixes required.
+
+## 2026-02-23 16:07 PT
+- Ran {"ok":true,"me":"pepper","channelId":"01KJ4MG98H44YMMSJ0BSSJZG1X","checks":["connect","typing","send","reply","react"]} from project root.
+- Result: PASS () for channel .
+- Checks passed: connect, typing, send, reply, react.
+- No fixes required; no commit made.
+
+## 2026-02-23 16:20 PT - Live health pass
+- Ran Skipping key user during hydration!
+Skipping key member during hydration!
+{"ok":true,"me":"pepper","channelId":"01KJ4MG98H44YMMSJ0BSSJZG1X","checks":["connect","typing","send","reply","react"]} from project root.
+- Result: success () for channel .
+- Checks passed: connect, typing, send, reply, react.
+- No fixes required.
+
+## 2026-02-23 16:51 PT - Live health pass
+- Ran `node scripts/e2e-live-check.mjs` from project root using `.env` config.
+- Result: PASS (`ok: true`) for channel `01KJ4MG98H44YMMSJ0BSSJZG1X`.
+- Checks passed: connect, typing, send, reply, react.
+- Notes: non-fatal hydration warnings observed: "Skipping key user/member during hydration".
+
+## 2026-02-23 17:01 PT — Live health pass
+- Ran: Skipping key user during hydration!
+Skipping key member during hydration!
+{"ok":true,"me":"pepper","channelId":"01KJ4MG98H44YMMSJ0BSSJZG1X","checks":["connect","typing","send","reply","react"]}
+- Result: PASS () for channel 
+- Checks passed: connect, typing, send, reply, react
+- No fixes required.
+
+## 2026-02-23 17:01 PT — Live health pass
+- Ran: `node scripts/e2e-live-check.mjs`
+- Result: PASS (`ok: true`) for channel `01KJ4MG98H44YMMSJ0BSSJZG1X`
+- Checks passed: connect, typing, send, reply, react
+- No fixes required.
+
+## 2026-02-23 17:12 PT — Live health pass (working channel `01KJ4MG98H44YMMSJ0BSSJZG1X`)
+- Used `.env` as source of truth.
+- Ran from project dir: `node scripts/e2e-live-check.mjs`
+- Result: PASS (`ok: true`) for channel `01KJ4MG98H44YMMSJ0BSSJZG1X`.
+- Checks passed: connect, typing, send, reply, react.
+- No token/channel/access/routing issues detected.
+- No fix required; no commit made.

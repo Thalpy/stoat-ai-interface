@@ -1,0 +1,14 @@
+{
+  "id": "stoat",
+  "name": "Stoat Channel",
+  "version": "0.1.0",
+  "description": "Stoat messaging channel plugin for OpenClaw",
+  "author": "Whimsycat",
+  "channels": ["stoat"],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  },
+  "uiHints": {}
+}

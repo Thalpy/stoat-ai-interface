@@ -18,6 +18,9 @@
   "peerDependencies": {
     "clawdbot": "*"
   },
+  "openclaw": {
+    "extensions": ["./index.ts"]
+  },
   "clawdbot": {
     "extensions": ["./index.ts"],
     "channels": ["stoat"]
