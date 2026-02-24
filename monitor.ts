@@ -6,7 +6,11 @@
 
 import { Client } from "stoat.js";
 import { getStoatRuntime, getStoatPluginApi } from "./runtime.js";
-import { messageMentionsBot, shouldProcessInboundMessage } from "./routing.js";
+import {
+  messageMentionsBot,
+  messageRepliesToBot,
+  shouldProcessInboundMessage,
+} from "./routing.js";
 import { buildStoatClientInit } from "./client-init.js";
 
 // Command prefix for text commands
@@ -163,7 +167,20 @@ export async function monitorStoatProvider(opts: MonitorOptions): Promise<() => 
 
   const client = new Client(clientOptions, websocketOptions);
   let stopped = false;
-  
+
+  // Keep a small per-channel cache of bot-authored message IDs so reply-based
+  // triggers work even without a direct @mention ping.
+  const botMessageIdsByChannel = new Map<string, string[]>();
+  const rememberBotMessage = (channelId: string | undefined, messageId: string | undefined) => {
+    if (!channelId || !messageId) return;
+    const existing = botMessageIdsByChannel.get(channelId) ?? [];
+    existing.push(messageId);
+    if (existing.length > 100) {
+      existing.splice(0, existing.length - 100);
+    }
+    botMessageIdsByChannel.set(channelId, existing);
+  };
+
   // Store for sending
   activeClients.set(accountId, { client, apiUrl });
   
@@ -628,23 +645,28 @@ export async function monitorStoatProvider(opts: MonitorOptions): Promise<() => 
     const senderName = message.author?.username ?? "Unknown";
     const text = message.content ?? "";
     const senderId = message.author?.id ?? "unknown";
-    
+    const channel = message.channel;
+    const channelId = (channel as any)?.id ?? message.channelId;
+
+    // Track our own messages so users can reply to them without @mentioning.
+    if (isSelf) {
+      rememberBotMessage(channelId, message.id);
+      return;
+    }
+
     // Check for attachments (images, files)
     const attachments = (message as any).attachments ?? [];
     const hasMedia = attachments.length > 0;
-    
-    // Check if bot is mentioned (require @mention in channels unless read-all is enabled)
+
+    // Check if bot is mentioned/replied to (channel gating) and read-all mode
     const botUserId = client.user?.id;
-    const channel = message.channel;
     const channelType = (channel as any)?.type ?? (channel as any)?.channelType;
     const isDM = channelType === "DirectMessage" || channelType === "Group";
-    const channelId = (channel as any)?.id ?? message.channelId;
-    
+
     // Check channel settings for read-all mode
     const channelConfig = getChannelSettings(channelId);
     const readAllEnabled = channelConfig.readAll;
 
-    // In channels, require mention unless read-all is enabled. In DMs, always respond.
     const mentionIds = Array.isArray((message as any).mentionIds)
       ? ((message as any).mentionIds as string[])
       : Array.isArray((message as any).mentions)
@@ -654,18 +676,32 @@ export async function monitorStoatProvider(opts: MonitorOptions): Promise<() => 
         : undefined;
     const isMentioned = messageMentionsBot({ text, botUserId, mentionIds });
 
+    const replyIds = Array.isArray((message as any).replyIds)
+      ? ((message as any).replyIds as unknown)
+      : Array.isArray((message as any).replies)
+        ? ((message as any).replies as unknown)
+        : undefined;
+    const isReplyToBot = messageRepliesToBot({
+      replyIds,
+      knownBotMessageIds: botMessageIdsByChannel.get(channelId) ?? [],
+    });
+
     // Commands with ! prefix should always work (even without mention)
     const textTrimmed = text.replace(/<@[^>]+>/g, "").trim();
     const isCommandMessage = textTrimmed.startsWith(COMMAND_PREFIX);
 
     if (!readAllEnabled && !isCommandMessage) {
-      if (!shouldProcessInboundMessage({ isSelf, isSystem, isDM, isMentioned })) return;
+      if (!shouldProcessInboundMessage({ isSelf, isSystem, isDM, isMentioned, isReplyToBot })) return;
     } else {
-      // Even in read-all/command mode, still ignore bot/system messages.
-      if (isSelf || isSystem) return;
+      // Even in read-all/command mode, still ignore system messages.
+      if (isSystem) return;
     }
-    
-    const modeLabel = isDM ? 'DM' : (readAllEnabled ? 'read-all' : (isMentioned ? 'mentioned' : 'command'));
+
+    const modeLabel = isDM
+      ? "DM"
+      : (readAllEnabled
+          ? "read-all"
+          : (isMentioned ? "mentioned" : (isReplyToBot ? "reply-to-bot" : "command")));
     log(`📨 MESSAGE RECEIVED: "${text}" from ${senderName}${hasMedia ? ` [${attachments.length} attachment(s)]` : ''} [${modeLabel}]`);
     
     // Check for text commands (strip mention first)
@@ -734,8 +770,6 @@ export async function monitorStoatProvider(opts: MonitorOptions): Promise<() => 
       
       // Determine chat type (channel, channelType, isDM already declared above)
       const chatType = isDM ? "direct" : "channel";
-      
-      const channelId = (channel as any)?.id ?? message.channelId;
       const messageId = message.id;
       
       // Resolve agent route
@@ -887,10 +921,11 @@ export async function monitorStoatProvider(opts: MonitorOptions): Promise<() => 
             
             try {
               // Send with reply reference to the original message
-              await (channel as any).sendMessage({
+              const sent = await (channel as any).sendMessage({
                 content: String(replyText),
                 replies: [{ id: messageId, mention: false }],
               });
+              rememberBotMessage(channelId, sent?.id);
               didReply = true;
               lastReplyTime = Date.now();
               log(`✅ Reply sent at ${new Date().toISOString()} (replying to ${messageId})`);

@@ -26,7 +26,7 @@ Goal: get `stoat-ai-interface` reliably working in an OpenClaw environment with 
 ## Phase 3 — End-to-End Validation
 
 - [x] Test connection against a real Stoat instance with bot token
-- [x] Verify inbound message routing behavior (mention-gating + DM)
+- [x] Verify inbound message routing behavior (mention-gating + reply-trigger + DM)
 - [x] Verify outbound send/reply behavior
 - [x] Verify reactions/typing behavior
 - [x] Capture setup/troubleshooting notes from real run
@@ -34,7 +34,7 @@ Goal: get `stoat-ai-interface` reliably working in an OpenClaw environment with 
 ## Validation Evidence Snapshot
 
 - Real-instance live check script: `scripts/e2e-live-check.mjs`
-- Inbound routing guard tests (mention-gating + DM): `test/monitor-routing.test.mjs`
+- Inbound routing guard tests (mention + reply trigger + busy-group noise + DM + failure paths): `test/monitor-routing.test.mjs`
 - Manifest/entry compatibility tests: `test/manifest-compat.test.mjs`
 - Startup-plan endpoint passthrough checks (`apiUrl` + `wsUrl`): `test/start-plan.test.mjs`
 - Config merge fallback checks for endpoint settings: `test/config.test.mjs`
