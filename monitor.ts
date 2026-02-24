@@ -264,8 +264,9 @@ export async function monitorStoatProvider(opts: MonitorOptions): Promise<() => 
       // Finalize the context
       const finalCtx = core.channel.reply.finalizeInboundContext(ctx);
       
-      // Track if we sent a reply
+      // Track if we sent a reply and when the last reply was sent
       let didReply = false;
+      let lastReplyTime = 0;
       
       // Create the reply dispatcher
       const { dispatcher, replyOptions, markDispatchIdle } = 
@@ -285,6 +286,7 @@ export async function monitorStoatProvider(opts: MonitorOptions): Promise<() => 
                 replies: [{ id: messageId, mention: false }],
               });
               didReply = true;
+              lastReplyTime = Date.now();
               log(`✅ Reply sent (replying to ${messageId})`);
             } catch (err) {
               error(`Failed to send reply: ${err}`);
@@ -319,18 +321,31 @@ export async function monitorStoatProvider(opts: MonitorOptions): Promise<() => 
         await (channel as any).stopTyping?.();
       } catch {}
       
-      // Remove 👀 and add ✅ reaction
-      try {
-        await message.unreact("👀");
-        await message.react("✅");
-        log(`✅ Updated reaction to complete`);
-      } catch (err) {
-        log(`Could not update reaction: ${err}`);
-      }
+      // Wait a moment after dispatch completes to ensure all replies are delivered
+      // This handles cases where the AI does tool calls after initial response
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
+      // Only mark complete if we actually sent a reply
       if (didReply) {
+        // Additional wait if last reply was very recent (might be more coming)
+        const timeSinceLastReply = Date.now() - lastReplyTime;
+        if (timeSinceLastReply < 500) {
+          await new Promise(resolve => setTimeout(resolve, 500 - timeSinceLastReply));
+        }
+        
+        try {
+          await message.unreact("👀");
+          await message.react("✅");
+          log(`✅ Updated reaction to complete`);
+        } catch (err) {
+          log(`Could not update reaction: ${err}`);
+        }
         log(`✅ Conversation complete`);
       } else {
+        // No reply - remove processing indicator
+        try {
+          await message.unreact("👀");
+        } catch {}
         log(`⏭️ No reply generated`);
       }
       
